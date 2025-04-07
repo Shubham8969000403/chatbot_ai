@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Goal Bot (INR)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex flex-col items-center min-h-screen p-6">
+  <div class="w-full max-w-xl bg-white rounded-2xl shadow-lg p-6 mt-6">
+    <h1 class="text-2xl font-bold text-center text-green-600 mb-4">📈 Smart Goal Bot (INR)</h1>
+    
+    <div id="chat" class="h-96 overflow-y-auto border rounded-lg p-4 mb-4 bg-gray-50 space-y-2 text-sm"></div>
+    
+    <div id="calendarInput" class="hidden mb-2">
+      <input type="date" id="datePicker" class="w-full border border-gray-300 px-4 py-2 rounded-lg">
+      <button onclick="submitDate()" class="mt-2 w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold">
+        Select Date
+      </button>
+    </div>
+
+    <div class="flex gap-2">
+      <input id="userInput" type="text" placeholder="Type your message..." 
+             class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring focus:border-green-400">
+      <button onclick="sendMessage()" 
+              class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("userInput");
+    const calendarInput = document.getElementById("calendarInput");
+    const datePicker = document.getElementById("datePicker");
+
+    let step = 0;
+    let goal = {
+      name: "",
+      targetAmount: 0,
+      deadline: "",
+      currentSavings: 0
+    };
+
+    const botReply = (msg) => {
+      const botMsg = document.createElement("div");
+      botMsg.className = "text-left text-green-700";
+      botMsg.innerText = "Bot: " + msg;
+      chat.appendChild(botMsg);
+      chat.scrollTop = chat.scrollHeight;
+    };
+
+    const userReply = (msg) => {
+      const userMsg = document.createElement("div");
+      userMsg.className = "text-right text-gray-800";
+      userMsg.innerText = "You: " + msg;
+      chat.appendChild(userMsg);
+      chat.scrollTop = chat.scrollHeight;
+    };
+
+    const calculateDailySaving = () => {
+      const today = new Date();
+      const end = new Date(goal.deadline);
+      const daysLeft = Math.ceil((end - today) / (1000 * 60 * 60 * 24));
+
+      if (daysLeft <= 0) {
+        botReply("🚨 Deadline already passed or is today! Please update the deadline.");
+        return;
+      }
+
+      const remaining = goal.targetAmount - goal.currentSavings;
+      if (remaining <= 0) {
+        botReply("🎉 You've already saved enough for your goal!");
+        return;
+      }
+
+      const daily = (remaining / daysLeft).toFixed(2);
+      botReply(`📅 You need to save ₹${daily} per day to reach ₹${goal.targetAmount} by ${goal.deadline}.`);
+    };
+
+    const sendMessage = () => {
+      const message = input.value.trim();
+      if (message === "") return;
+
+      userReply(message);
+      input.value = "";
+
+      switch (step) {
+        case 0:
+          botReply("What is the name of your financial goal?");
+          step = 1;
+          break;
+
+        case 1:
+          goal.name = message;
+          botReply(`Great! What's the target amount (₹) you want to save for "${goal.name}"?`);
+          step = 2;
+          break;
+
+        case 2:
+          const amount = parseFloat(message);
+          if (isNaN(amount) || amount <= 0) {
+            botReply("❌ Please enter a valid number.");
+            return;
+          }
+          goal.targetAmount = amount;
+          botReply("Pick your goal deadline from the calendar below.");
+          calendarInput.classList.remove("hidden");
+          step = 3;
+          break;
+
+        case 4:
+          const saved = parseFloat(message);
+          if (isNaN(saved) || saved < 0) {
+            botReply("❌ Please enter a valid amount.");
+            return;
+          }
+          goal.currentSavings = saved;
+          botReply(`✅ Goal "${goal.name}" set with target ₹${goal.targetAmount} by ${goal.deadline}.`);
+          calculateDailySaving();
+          botReply("💡 You can now type 'update 500' to update your current savings.");
+          step = 5;
+          break;
+
+        case 5:
+          if (message.toLowerCase().startsWith("update")) {
+            const newAmt = parseFloat(message.split(" ")[1]);
+            if (isNaN(newAmt) || newAmt < 0) {
+              botReply("❌ Please enter a valid update like: update 600");
+              return;
+            }
+            goal.currentSavings = newAmt;
+            botReply(`Updated savings to ₹${goal.currentSavings}`);
+            calculateDailySaving();
+          } else {
+            botReply("Type 'update 500' to change your savings or 'start' to set a new goal.");
+          }
+          break;
+
+        default:
+          if (message.toLowerCase() === "start") {
+            goal = {
+              name: "",
+              targetAmount: 0,
+              deadline: "",
+              currentSavings: 0
+            };
+            calendarInput.classList.add("hidden");
+            botReply("🔄 Starting over...");
+            step = 0;
+            sendMessage(); // auto trigger next step
+          } else {
+            botReply("I didn't get that. Type 'update 500' or 'start'.");
+          }
+      }
+    };
+
+    const submitDate = () => {
+      const dateValue = datePicker.value;
+      if (!dateValue) {
+        botReply("❌ Please pick a date first.");
+        return;
+      }
+      goal.deadline = dateValue;
+      calendarInput.classList.add("hidden");
+      botReply(`📆 Goal deadline set to ${goal.deadline}. Now, how much have you saved so far? (₹)`);
+      step = 4;
+    };
+
+    // Initial greeting
+    window.onload = () => {
+      botReply("👋 Namaste! I'm your savings bot. Type anything to start setting your goal in ₹.");
+    };
+  </script>
+</body>
+</html>
